@@ -16,6 +16,20 @@ const server = new McpServer({
   },
 });
 
+server.registerTool(
+    "fetch_article",
+    {
+        title: "Article Fetcher",
+        description: "Retrieves articles relevant to the search topic",
+        inputSchema: { ArticleSchema }
+    },
+    async (input) => {
+        // Implement the logic to fetch articles based on the input
+        // For now, just return a placeholder
+        return { articles: [] };
+    }
+)
+
 // Use server.tool vs server.registerTool for simplicity. Latter requires declaration separate from implementation, whereas server.tool you pass the tool metadata: name, description, input schema and the handler function
 server.registerTool(
   "clean_article",

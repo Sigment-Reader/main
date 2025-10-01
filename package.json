@@ -1,6 +1,9 @@
 {
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.2",
+    "dotenv": "^17.2.3",
+    "p-limit": "^7.1.1",
+    "undici": "^7.16.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
