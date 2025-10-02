@@ -10,9 +10,17 @@ import { scrapeOne, scrapeArticles } from './domain/scrapping.js';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const SCRAPER_URL = (
-  process.env.SCRAPER_URL || `http://localhost:${process.env.PORT || 3001}`
-).replace(/\/+$/, '');
+const FetchArticleInput = z.object({
+  mode: z.literal('batch'),
+  limit: z.number().int().min(1).max(300).default(100),
+  months: z.number().int().min(1).max(36).default(12),
+});
+type FetchArticleInput = z.infer<typeof FetchArticleInput>;
+
+const FetchArticleInputJSON = zodToJsonSchema(FetchArticleInput, {
+  name: 'FetchArticleInput',
+  target: 'jsonSchema7',
+});
 
 const systemPrompt = `
     You are a careful information extractor. 
@@ -24,26 +32,6 @@ const systemPrompt = `
         - title → strip leading/trailing whitespace.
         - summary → 3 sentences summarizing the article text.
 `;
-
-// const ArticleSchema = z.object({
-//   url: z.string().url(),
-//   publication: z.enum(['World Bank', 'TLDR']),
-//   title: z.string(),
-//   subtitle: z.string().nullable().optional(),
-//   date: z.string().nullable().optional(),
-//   text: z.string(),
-// });
-// type Article = z.infer<typeof ArticleSchema>;
-
-// const FetchInputSchema = z.object({
-//   query: z.string().default(''),
-//   monthsBack: z.number().int().min(1).max(24).default(3),
-//   limitPerSource: z.number().int().min(1).max(20).default(6),
-//   sources: z
-//     .array(z.enum(['World Bank', 'TLDR']))
-//     .default(['World Bank', 'TLDR']),
-// });
-// type FetchInput = z.infer<typeof FetchInputSchema>;
 
 const server = new McpServer({
   name: 'Sigment-Reader',
@@ -58,35 +46,27 @@ server.registerTool(
   'fetch_article',
   {
     title: 'Article Fetcher',
-    description:
-      'Fetches recent TechCrunch articles and returns normalized objects.',
-    inputSchema: {
-      url: z.string().url(),
-    },
+    description: 'Fetch up to {limit] from the last {months} months.',
+    inputSchema: FetchArticleInput.shape,
   },
-  async ({ url }) => {
-    const art = await scrapeOne(url);
-    return { 
-      content: [{ type: "text", text: JSON.stringify(art, null, 2)}],
-    };
+  async (input: FetchArticleInput): Promise<any> => {
+    const rows = await scrapeArticles({
+      limit: input.limit,
+      monthsBack: input.months,
+    });
+    return { content: [{ type: 'json', data: rows }] };
   }
 );
 
-server.registerTool(
-  'fetch_articles',{
-    title: "Fetch recent TechCrunch artilces",
-    description: "Collect and parse up to {limit} TechCrunch articles from the last {months} months.",
-    inputSchema: {limit: z.number().int().min(1).max(300).default(100),
-      months: z.number().int().min(1).max(36).default(12),
-    },
-  },
-  async ({limit = 100, months = 12}) => {
-    const rows = await scrapeArticles({ limit, monthsBack: months });
-    return {
-      content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
-    };
-  }
-);
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error('MCP server ready (stdio).');
+}
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
 
 // Use server.tool vs server.registerTool for simplicity. Latter requires declaration separate from implementation, whereas server.tool you pass the tool metadata: name, description, input schema and the handler function
 // server.registerTool(
