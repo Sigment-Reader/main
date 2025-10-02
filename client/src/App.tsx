@@ -1,35 +1,80 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import NewsFeed from '../components/newsfeed';
+import QueryInput from '../components/queryInput';
+import SpaceBackground from '../components/spaceBackground';
+import type { Article } from '../../server/model/article';
 
-function App() {
-  const [count, setCount] = useState(0)
+const API_ENDPOINT = '/api/news-query';
+
+export function App() {
+  const [newsFeed, setNewsFeed] = useState<Article[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleQuerySubmit = async (fullQuery: string) => {
+    setError(null);
+    setIsLoading(true);
+    setNewsFeed([]);
+
+    console.log(`Sending query to backend: "${fullQuery}"`);
+
+    try {
+      const response = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: fullQuery }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Server error! Status: ${response.status}. Details: ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (data && Array.isArray(data)) {
+        const sortedData = data
+          .filter((a) => a.summary)
+          .sort(
+            (a, b) =>
+              new Date(b.publishedDate).getTime() -
+              new Date(a.publishedDate).getTime()
+          );
+        setNewsFeed(sortedData);
+      } else {
+        setError('LLM returned an invalid or empty response structure.');
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+      if (err instanceof Error) {
+        setError(`Failed to process request: ${err.message}.`);
+      } else {
+        setError('An unknown error occurred.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="min-h-screen relative font-['Inter']">
+      <SpaceBackground />
+      <div
+        className='relative z-10 min-h-screen flex flex-col items-center p-4'
+        style={{ color: '#E0F7FA' }}
+      >
+        <div className='w-full max-w-4xl'>
+          <h1 className='text-4xl font-extrabold text-cyan-400 mb-8 text-center pt-4 tracking-wider'>
+            Sigment Reader
+          </h1>
+          <QueryInput isLoading={isLoading} onSubmit={handleQuerySubmit} />
+          <NewsFeed newsFeed={newsFeed} isLoading={isLoading} error={error} />
+        </div>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;
