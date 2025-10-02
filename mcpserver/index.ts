@@ -2,9 +2,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ArticleSchema } from "./model/article.js";
 import type { Article } from "./model/article.js";
-import { chunkArticles } from "./domain/chunk.js";
+import { chunkArticles } from "../server/domain/chunk.js";
 import OpenAI from "openai";
-import { z } from "zod";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -29,22 +28,22 @@ const server = new McpServer({
 });
 
 server.registerTool(
-    "fetch_article",
-    {
-        title: "Article Fetcher",
-        inputSchema: {
-            query: z.string(),
-            monthsBack: z.number(),
-            limitPerSource: z.number(),
-            sources: z.array(z.string())
-        }
+  "fetch_article",
+  {
+    title: "Article Fetcher",
+    inputSchema: {
+      query: z.string(),
+      monthsBack: z.number(),
+      limitPerSource: z.number(),
+      sources: z.array(z.string()),
     },
-    async (input) => {
-        // Implement the logic to fetch articles based on the input
-        // For now, just return a placeholder
-        //return { articles: [] };
-    }
-)
+  },
+  async (input) => {
+    // Implement the logic to fetch articles based on the input
+    // For now, just return a placeholder
+    //return { articles: [] };
+  }
+);
 
 // Use server.tool vs server.registerTool for simplicity. Latter requires declaration separate from implementation, whereas server.tool you pass the tool metadata: name, description, input schema and the handler function
 server.registerTool(
