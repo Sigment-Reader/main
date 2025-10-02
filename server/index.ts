@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ArticleSchema } from "./model/article.js";
 import OpenAI from "openai";
+import { z } from "zod";
 
 //OPENAI_API_KEY
 
@@ -20,13 +21,17 @@ server.registerTool(
     "fetch_article",
     {
         title: "Article Fetcher",
-        description: "Retrieves articles relevant to the search topic",
-        inputSchema: { ArticleSchema }
+        inputSchema: {
+            query: z.string(),
+            monthsBack: z.number(),
+            limitPerSource: z.number(),
+            sources: z.array(z.string())
+        }
     },
     async (input) => {
         // Implement the logic to fetch articles based on the input
         // For now, just return a placeholder
-        return { articles: [] };
+        //return { articles: [] };
     }
 )
 

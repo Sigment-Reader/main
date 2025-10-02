@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -6,7 +5,6 @@ import { z } from 'zod';
 import { fetch } from 'undici';
 import pLimit from 'p-limit';
 import { JSDOM } from 'jsdom';
-
 
 const CONCURRENCY = 3;
 const FIRECRAWL_API_URL = process.env.FIRECRAWL_API_URL!;
@@ -17,17 +15,15 @@ if (!FIRECRAWL_API_URL || !FIRECRAWL_API_KEY) {
   throw new Error('Missing FIRECRAWL_API_URL or FIRECRAWL_API_KEY in .env');
 }
 
-
 const ArticleScrapeSchema = z.object({
   url: z.string().url(),
   publication: z.enum(['Lenny', 'TLDR']),
   title: z.string().min(1),
   subtitle: z.string().optional().nullable(),
-  date: z.string().datetime().optional().nullable(), 
+  date: z.string().datetime().optional().nullable(),
   text: z.string().min(1),
 });
 type ArticleScrape = z.infer<typeof ArticleScrapeSchema>;
-
 
 function hostnameToPublication(url: string): 'Lenny' | 'TLDR' {
   const u = new URL(url);
@@ -77,9 +73,9 @@ async function fcScrape(url: string) {
   };
 }
 
-
 async function getRecentLennyLinks(limit = 10): Promise<string[]> {
-  const res = await fetch('https://www.lennysnewsletter.com/archive');
+//   const res = await fetch('https://www.lennysnewsletter.com/archive');
+  const res = await fetch ('https://sdtimes.com/');
   const html = await res.text();
   const dom = new JSDOM(html);
   const links = Array.from(dom.window.document.querySelectorAll('a'))
@@ -102,17 +98,14 @@ async function getRecentTLDRLinks(limit = 10): Promise<string[]> {
   return Array.from(new Set(links)).slice(0, limit);
 }
 
-
 async function scrapeOne(url: string): Promise<ArticleScrape> {
   const publication = hostnameToPublication(url);
   const fc = await fcScrape(url);
-
 
   const text =
     (fc.markdown?.trim() && fc.markdown) ||
     (fc.html ? stripHtmlToText(fc.html) : '') ||
     '';
-
 
   const meta = fc.metadata ?? {};
   const dateGuess =
@@ -138,13 +131,15 @@ async function scrapeOne(url: string): Promise<ArticleScrape> {
 async function scrapeArticles(opts?: {
   sources?: Array<'Lenny' | 'TLDR'>;
   limitPerSource?: number;
-  monthsBack?: number; // used only for filtering if date exists
+  monthsBack?: number;
 }): Promise<ArticleScrape[]> {
   const { sources = ['Lenny', 'TLDR'], limitPerSource = 8 } = opts ?? {};
 
   const urlJobs: Promise<string[]>[] = [];
-  if (sources.includes('Lenny')) urlJobs.push(getRecentLennyLinks(limitPerSource));
-  if (sources.includes('TLDR')) urlJobs.push(getRecentTLDRLinks(limitPerSource));
+  if (sources.includes('Lenny'))
+    urlJobs.push(getRecentLennyLinks(limitPerSource));
+  if (sources.includes('TLDR'))
+    urlJobs.push(getRecentTLDRLinks(limitPerSource));
 
   const urlSets = await Promise.all(urlJobs);
   const urls = Array.from(new Set(urlSets.flat()));
@@ -156,7 +151,7 @@ async function scrapeArticles(opts?: {
         return await scrapeOne(u);
       } catch (e) {
         console.error('Scrape failed:', u, (e as Error).message);
-        return null; // keep going
+        return null;
       }
     })
   );
@@ -164,7 +159,6 @@ async function scrapeArticles(opts?: {
   const results = (await Promise.all(jobs)).filter(Boolean) as ArticleScrape[];
   return results.filter((a) => a.text.length > 0);
 }
-
 
 const app = express();
 app.use(cors());
@@ -181,13 +175,12 @@ app.get('/api/articles', async (req, res) => {
       monthsBack: months,
     });
 
- 
     const now = new Date();
     const cutoff = new Date(now);
     cutoff.setMonth(cutoff.getMonth() - months);
 
     const filtered = items.filter((a) => {
-      if (!a.date) return true; 
+      if (!a.date) return true;
       return new Date(a.date) >= cutoff;
     });
 
@@ -198,9 +191,8 @@ app.get('/api/articles', async (req, res) => {
 });
 
 app.listen(PORT, () =>
-  console.log(`Scrape API listening on http://localhost:${PORT}`)
+  console.log(`⭐️⭐️Scrape API listening on http://localhost:${PORT}⭐️⭐️`)
 );
-
 
 if (process.argv.includes('--once')) {
   (async () => {
