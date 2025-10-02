@@ -4,7 +4,7 @@ import QueryInput from '../components/queryInput';
 import SpaceBackground from '../components/spaceBackground';
 import type { Article } from '../../server/model/article';
 
-const API_ENDPOINT = '/api/news-query';
+const API_ENDPOINT = 'http://localhost:5173/api/news-query';
 
 export function App() {
   const [newsFeed, setNewsFeed] = useState<Article[]>([]);
@@ -22,8 +22,11 @@ export function App() {
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: fullQuery }),
+        // CHANGE: query -> userQuery
+        body: JSON.stringify({ userQuery: fullQuery }),
       });
+
+      console.log(fullQuery);
 
       if (!response.ok) {
         const errorText = await response.text();

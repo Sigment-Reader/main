@@ -18,17 +18,14 @@ const QueryInput: React.FC<QueryInputProps> = ({ isLoading, onSubmit }) => {
       onSubmit={handleSubmit}
       className='bg-gray-800/95 p-6 md:p-8 rounded-xl shadow-2xl mb-12 border border-cyan-800 backdrop-blur-sm'
     >
-      <p className='text-gray-400 text-sm mb-4'>
-        Input your query, and the LLM will deploy the **MCP
-        Probe** to fetch and summarize intelligence.
-      </p>
+      <p className='text-gray-400 text-sm mb-4'>Input your query</p>
       <div className='flex flex-col md:flex-row gap-4 mb-4'>
         <div className='flex-grow'>
           <label
             htmlFor='topic-input'
             className='block text-sm font-medium text-gray-300 mb-1'
           >
-            Topic Query (e.g., "latest on AI chip technology")
+            Topic Query
           </label>
           <input
             id='topic-input'
@@ -74,10 +71,10 @@ const QueryInput: React.FC<QueryInputProps> = ({ isLoading, onSubmit }) => {
                 d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
               ></path>
             </svg>
-            Deploying Probe...
+            Deploying Agent...
           </>
         ) : (
-          'Deploy Search Probe'
+          'Deploy Agent'
         )}
       </button>
     </form>
