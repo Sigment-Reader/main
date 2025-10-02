@@ -1,8 +1,4 @@
 
-const URLS: string[] = [
-  'https://www.lennysnewsletter.com/',
-  'https://tldr.tech/',
-];
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -11,9 +7,7 @@ import { fetch } from 'undici';
 import pLimit from 'p-limit';
 import { JSDOM } from 'jsdom';
 
-/* =========================
-   Config
-========================= */
+
 const CONCURRENCY = 3;
 const FIRECRAWL_API_URL = process.env.FIRECRAWL_API_URL!;
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY!;
@@ -29,7 +23,7 @@ const ArticleScrapeSchema = z.object({
   publication: z.enum(['Lenny', 'TLDR']),
   title: z.string().min(1),
   subtitle: z.string().optional().nullable(),
-  date: z.string().datetime().optional().nullable(), // ISO 8601 if known
+  date: z.string().datetime().optional().nullable(), 
   text: z.string().min(1),
 });
 type ArticleScrape = z.infer<typeof ArticleScrapeSchema>;
