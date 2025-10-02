@@ -1,35 +1,48 @@
 // Chunking the array of objects from article scraping to be able to fit the information within GPT's context limit.
 
-import { Article } from "../model/article.js";
+import type { z } from "zod";
+import { ArticleSchema, type Article } from "../model/article.js";
+import { ArticleScrapeSchema } from "./scrapping.js";
+
+type ArticleScrape = z.infer<typeof ArticleScrapeSchema>;
 
 const maxArticlesPerBatch = 10;
-const maxCharsPerBatch = 12000;
+const maxCharsPerBatch = 10000;
 
-export function chunkArticles(articles: Article[]) {
+export function chunkArticles(rawArticles: ArticleScrape[]): Article[][] {
   const batches: Article[][] = [];
   let currentBatch: Article[] = [];
   let currentChars = 0;
 
-  for (const article of articles) {
-    const articleLength = article.text.length;
+  for (const raw of rawArticles) {
+    const normalized = ArticleSchema.parse({
+      id: raw.url,
+      source: raw.publication,
+      url: raw.url,
+      publishedDate: raw.date ?? undefined,
+      author: "",
+      title: raw.title,
+      text: raw.text,
+      summary: "",
+    });
+
+    const articleLength = normalized.text.length;
     const batchIsFull = currentBatch.length >= maxArticlesPerBatch;
     const charsIsFull = currentChars + articleLength > maxCharsPerBatch;
 
-    // Check if im going to reach the max of articles in a batch or the chars in a batch. If so, move on to the next batch
     if ((batchIsFull || charsIsFull) && currentBatch.length) {
       batches.push(currentBatch);
       currentBatch = [];
       currentChars = 0;
     }
-    // Otherwise keep pushing articles into the batch and update variable currentChars
-    currentBatch.push(article);
+
+    currentBatch.push(normalized);
     currentChars += articleLength;
-
-    // Last push, once everything is completed
-    if (currentBatch.length) {
-      batches.push(currentBatch);
-    }
-
-    return batches;
   }
+
+  if (currentBatch.length) {
+    batches.push(currentBatch);
+  }
+
+  return batches;
 }
