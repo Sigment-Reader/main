@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import 'dotenv/config';
 import { fetch } from 'undici';
-import { scrapeArticles } from './domain/scrapping.js';
+import { scrapeOne, scrapeArticles } from './domain/scrapping.js';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -25,25 +25,25 @@ const systemPrompt = `
         - summary → 3 sentences summarizing the article text.
 `;
 
-const ArticleSchema = z.object({
-  url: z.string().url(),
-  publication: z.enum(['World Bank', 'TLDR']),
-  title: z.string(),
-  subtitle: z.string().nullable().optional(),
-  date: z.string().nullable().optional(),
-  text: z.string(),
-});
-type Article = z.infer<typeof ArticleSchema>;
+// const ArticleSchema = z.object({
+//   url: z.string().url(),
+//   publication: z.enum(['World Bank', 'TLDR']),
+//   title: z.string(),
+//   subtitle: z.string().nullable().optional(),
+//   date: z.string().nullable().optional(),
+//   text: z.string(),
+// });
+// type Article = z.infer<typeof ArticleSchema>;
 
-const FetchInputSchema = z.object({
-  query: z.string().default(''),
-  monthsBack: z.number().int().min(1).max(24).default(3),
-  limitPerSource: z.number().int().min(1).max(20).default(6),
-  sources: z
-    .array(z.enum(['World Bank', 'TLDR']))
-    .default(['World Bank', 'TLDR']),
-});
-type FetchInput = z.infer<typeof FetchInputSchema>;
+// const FetchInputSchema = z.object({
+//   query: z.string().default(''),
+//   monthsBack: z.number().int().min(1).max(24).default(3),
+//   limitPerSource: z.number().int().min(1).max(20).default(6),
+//   sources: z
+//     .array(z.enum(['World Bank', 'TLDR']))
+//     .default(['World Bank', 'TLDR']),
+// });
+// type FetchInput = z.infer<typeof FetchInputSchema>;
 
 const server = new McpServer({
   name: 'Sigment-Reader',
@@ -59,35 +59,31 @@ server.registerTool(
   {
     title: 'Article Fetcher',
     description:
-      'Fetches recent Lenny & TLDR articles and returns normalized objects.',
-    inputSchema: zodToJsonSchema(FetchInputSchema, 'FetchArticleInput'),
+      'Fetches recent TechCrunch articles and returns normalized objects.',
+    inputSchema: {
+      url: z.string().url(),
+    },
   },
-  async (args) => {
-    const input: FetchInput = FetchInputSchema.parse(args?.arguments ?? args);
+  async ({ url }) => {
+    const art = await scrapeOne(url);
+    return { 
+      content: [{ type: "text", text: JSON.stringify(art, null, 2)}],
+    };
+  }
+);
 
-    const url = new URL('/api/articles', SCRAPER_URL);
-    url.searchParams.set('months', String(input.monthsBack));
-    url.searchParams.set('limit', String(input.limitPerSource));
-    if (input.query) url.searchParams.set('q', input.query);
-    if (input.sources?.length)
-      url.searchParams.set('sources', input.sources.join(','));
-
-    const resp = await fetch(url.toString());
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => '');
-      throw new Error(
-        `scraper GET ${url.pathname} failed ${resp.status}: ${text}`
-      );
-    }
-    const raw = await resp.json();
-    const articles = z.array(ArticleSchema).parse(raw);
+server.registerTool(
+  'fetch_articles',{
+    title: "Fetch recent TechCrunch artilces",
+    description: "Collect and parse up to {limit} TechCrunch articles from the last {months} months.",
+    inputSchema: {limit: z.number().int().min(1).max(300).default(100),
+      months: z.number().int().min(1).max(36).default(12),
+    },
+  },
+  async ({limit = 100, months = 12}) => {
+    const rows = await scrapeArticles({ limit, monthsBack: months });
     return {
-      content: [
-        {
-          type: 'json',
-          json: { articles },
-        },
-      ],
+      content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
     };
   }
 );
