@@ -1,9 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ArticleSchema } from "./model/article.js";
 import type { Article } from "./model/article.js";
-import { chunkArticles } from "../server/domain/chunk.js";
+import { chunkArticles } from "./domain/chunk.js";
+import { ArticleScrapeSchema, scrapeArticles } from "./domain/scrapping.js";
 import OpenAI from "openai";
+import { z } from "zod";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -18,6 +21,18 @@ const systemPrompt = `
         - summary → 3 sentences summarizing the article text.
 `;
 
+const schemaDescription = `
+  Each article must include:
+  - id (string)
+  - source ("TLDR" | "Lenny")
+  - url (string, valid URL)
+  - publishedDate (ISO-8601 string or "")
+  - author (string)
+  - title (string)
+  - text (string)
+  - summary (string)
+`;
+
 const server = new McpServer({
   name: "Sigment-Reader",
   version: "1.0.0",
@@ -27,21 +42,36 @@ const server = new McpServer({
   },
 });
 
+const FetchArticleInputSchema = z.object({
+  limit: z.number().int().min(1).max(300).default(20),
+  months: z.number().int().min(1).max(36).default(12),
+});
+
+type FetchArticleInput = z.infer<typeof FetchArticleInputSchema>;
+
 server.registerTool(
   "fetch_article",
   {
     title: "Article Fetcher",
-    inputSchema: {
-      query: z.string(),
-      monthsBack: z.number(),
-      limitPerSource: z.number(),
-      sources: z.array(z.string()),
-    },
+    description: "Fetch up to {limit} articles from the last {months} months.",
+    inputSchema: FetchArticleInputSchema.shape,
   },
-  async (input) => {
-    // Implement the logic to fetch articles based on the input
-    // For now, just return a placeholder
-    //return { articles: [] };
+  async (input, _extra): Promise<CallToolResult> => {
+    const args = FetchArticleInputSchema.parse(input ?? {});
+    const rows = await scrapeArticles({
+      limit: args.limit,
+      monthsBack: args.months,
+    });
+    const payload = { articles: z.array(ArticleScrapeSchema).parse(rows) };
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(payload, null, 2),
+        },
+      ],
+      structuredContent: payload,
+    };
   }
 );
 
@@ -52,27 +82,18 @@ server.registerTool(
     title: "Article cleaner",
     description:
       "Clean up article text according to a prompt provided by an LLM",
-    inputSchema: { ArticleSchema },
+    inputSchema: { articles: ArticleScrapeSchema.array() },
   },
-  async ({ outputfromfetcharticle }) => {
+  async ({ articles }, _extra): Promise<CallToolResult> => {
     // Chunk the incoming array of articles
-    const batches = chunkArticles(outputfromfetcharticle);
+    const batches = chunkArticles(articles);
     const cleanResult: Article[] = [];
     // Prompt the LLM to make fit into the schema which includes the summary
     for (const batch of batches!) {
       const userPrompt = `
-        Extract and normalize the following articles
-        Input array (JSON): ${JSON.stringify(batch)}
-        Output: JSON array matching ${ArticleSchema}. No extra keys beyond the schema.
-        With the followng mapping rules:
-        - id: prefer stable unique id from input.
-        - source: this is either "TLDR" or "Lenny" do not make fabricate anything else.
-        - url: canonical URL if present; otherwise first valid HTTP(S) URL in the item.
-        - publishedDate: use any date-like field; convert to ISO-8601; omit if unknown.
-        - author: use byline/author fields if present; otherwise empty string.
-        - title: best available title field.
-        - text: main article text/body (raw if available).
-        - summary: write a concise summary of 3 sentences.
+        Extract and normalize the following articles…
+        Output: JSON array matching this schema:
+        ${schemaDescription}
         `;
 
       const response = await openai.responses.create({
@@ -88,5 +109,29 @@ server.registerTool(
       const cleanOutput = parsed.map((item: any) => ArticleSchema.parse(item)); // Validates into a new array that fits the ArticleSchema via Zod
       cleanResult.push(...cleanOutput);
     }
+    const payload = { articles: cleanResult };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(payload, null, 2),
+        },
+      ],
+      structuredContent: payload,
+    };
   }
 );
+
+// Instatiate StdioServerTransport to allow client access to the tools
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("Sigment Reader MCP Server running on stdio");
+}
+
+main().catch((error) => {
+  console.error("Fatal error in main():", error);
+  process.exit(1);
+});

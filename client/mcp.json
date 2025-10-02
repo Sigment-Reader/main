@@ -1,0 +1,5 @@
+{
+  "type": "mcp",
+  "name": "sigment-reader",
+  "command": ["node", "../mcpserver/index.ts"]
+}

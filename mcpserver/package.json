@@ -7,7 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node index.ts",
-    "server": "ts-node ./model/scrapping.ts"
+    "server": "ts-node ./domain/scrapping.ts"
   },
   "keywords": [],
   "author": "",
