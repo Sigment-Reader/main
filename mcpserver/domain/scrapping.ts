@@ -249,7 +249,7 @@ async function getRecentTechCrunchLinks(
   }
 
   const links = Array.from(out).slice(0, limit);
-  console.log(
+  console.error(
     `[TechCrunch] collected: ${links.length} (monthsBack=${monthsBack})`
   );
   return links;
@@ -301,7 +301,7 @@ async function scrapeArticles(opts?: {
   const { limit = 100, monthsBack = 12 } = opts ?? {};
 
   const urls = await getRecentTechCrunchLinks(limit, monthsBack);
-  console.log(`Scraping ${urls.length} URLs (concurrency=${CONCURRENCY})`);
+  console.error(`Scraping ${urls.length} URLs (concurrency=${CONCURRENCY})`);
 
   const limiter = pLimit(CONCURRENCY);
   const jobs = urls.map((u, i) =>
@@ -309,7 +309,7 @@ async function scrapeArticles(opts?: {
       try {
         const art = await scrapeOne(u);
         if ((i + 1) % 10 === 0)
-          console.log(`✔ scraped ${i + 1}/${urls.length}`);
+          console.error(`✔ scraped ${i + 1}/${urls.length}`);
         return art;
       } catch (e) {
         console.error("Scrape failed:", u, (e as Error).message);
@@ -330,7 +330,7 @@ app.get("/api/articles", async (req, res) => {
   const limit = Math.min(Number(req.query.limit ?? 100), 300);
   const months = Math.max(1, Math.min(Number(req.query.months ?? 12), 36));
 
-  console.log("REQ", { limit, months });
+  console.error("REQ", { limit, months });
 
   try {
     const rows = await scrapeArticles({ limit, monthsBack: months });
@@ -344,7 +344,7 @@ app.get("/api/articles", async (req, res) => {
 app.get("/health", (_req, res) => res.send("ok"));
 
 app.listen(PORT, () =>
-  console.log(`🟢 Scrape API listening on http://localhost:${PORT}`)
+  console.error(`Scrape API listening on http://localhost:${PORT}`)
 );
 
 export {

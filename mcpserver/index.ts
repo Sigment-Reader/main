@@ -18,7 +18,7 @@ const systemPrompt = `
     Parse and normalize:
         - publishedDate → ISO-8601 (UTC if timezone unknown).
         - title → strip leading/trailing whitespace.
-        - summary → 3 sentences summarizing the article text.
+        - summary → 5 sentences summarizing the article text.
 `;
 
 const schemaDescription = `
@@ -86,28 +86,63 @@ server.registerTool(
   },
   async ({ articles }, _extra): Promise<CallToolResult> => {
     // Chunk the incoming array of articles
+    console.error("clean_article received", { count: articles.length });
     const batches = chunkArticles(articles);
     const cleanResult: Article[] = [];
     // Prompt the LLM to make fit into the schema which includes the summary
     for (const batch of batches!) {
       const userPrompt = `
-        Extract and normalize the following articles…
+        Extract and normalize the following articles. For each article, produce a summary of at most 5 sentences.
         Output: JSON array matching this schema:
         ${schemaDescription}
         `;
+
+      const userContent = `${userPrompt}\n\nArticles JSON:\n${JSON.stringify(
+        {
+          articles: batch,
+        },
+        null,
+        2
+      )}`;
 
       const response = await openai.responses.create({
         model: "gpt-4.1-mini",
         input: [
           { role: "system", content: systemPrompt.trim() },
-          { role: "user", content: userPrompt },
+          { role: "user", content: userContent },
         ],
       });
 
       const rawOutput = response.output_text; // Output is a JSON string
-      const parsed = JSON.parse(rawOutput); // Parse into real JS object
-      const cleanOutput = parsed.map((item: any) => ArticleSchema.parse(item)); // Validates into a new array that fits the ArticleSchema via Zod
-      cleanResult.push(...cleanOutput);
+      if (!rawOutput?.trim()) {
+        console.error("clean_article empty output", {
+          batchSize: batch.length,
+        });
+        continue;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(rawOutput);
+      } catch (error) {
+        console.error("clean_article JSON parse failed", {
+          batchSize: batch.length,
+          snippet: rawOutput.slice(0, 200),
+          error,
+        });
+        continue;
+      }
+
+      const validated = ArticleSchema.array().safeParse(parsed);
+      if (!validated.success) {
+        console.error("clean_article validation failed", {
+          batchSize: batch.length,
+          issues: validated.error.issues,
+        });
+        continue;
+      }
+
+      cleanResult.push(...validated.data);
     }
     const payload = { articles: cleanResult };
 
