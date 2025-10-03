@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "dev": "npm --prefix client run dev",
+    "dev:vite": "npm --prefix client run dev:vite",
+    "dev:mcp": "npm --prefix client run dev:mcp",
+    "dev:server": "npm --prefix server run dev"
+  },
+  "dependencies": {
+    "openai": "^5.0.0-beta.0"
+  }
+}

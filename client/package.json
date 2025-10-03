@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm:dev:vite\" \"npm:dev:mcp\"",
+    "dev": "concurrently \"npm:dev:vite\" \"npm:dev:mcp\" \"npm:dev:server\"",
     "dev:vite": "vite",
     "dev:mcp": "ts-node ../mcpserver/index.ts",
+    "dev:server": "npm --prefix ../server run dev",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
