@@ -47,7 +47,9 @@ const SpaceBackground = () => {
 
     // Start with a generic material while the texture loads
     const earthMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3333ff,
+      color: 0xffffff, // White base color
+      specular: 0x333333, // Base specular reflection
+      shininess: 7,
     });
 
     // FIX 2: Use 'const' for the earth mesh since it is immediately assigned
