@@ -4,7 +4,7 @@ import QueryInput from '../components/queryInput';
 import SpaceBackground from '../components/spaceBackground';
 import type { Article } from '../../server/model/article';
 
-const API_ENDPOINT = 'http://localhost:5173/api/news-query';
+const API_ENDPOINT = 'http://localhost:3000/api/news-query';
 
 export function App() {
   const [newsFeed, setNewsFeed] = useState<Article[]>([]);

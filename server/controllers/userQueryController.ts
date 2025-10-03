@@ -22,13 +22,15 @@ export const parseUserQuery: RequestHandler = async (
   }
 
   const { userQuery } = req.body;
-
+  console.log('THIS IS USERQUERY', userQuery);
   if (typeof userQuery !== 'string') {
     const error: ServerError = {
       log: 'User query is not a string',
       status: 400,
       message: { err: 'An error occurred while parsing the user query' },
     };
+
+    console.log('MANAGED TO SAVE THE REQBODY INTO USERQUERY');
     return next(error);
   }
 

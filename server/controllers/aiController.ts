@@ -57,8 +57,10 @@ export const queryOpenAIChat: RequestHandler = async (_req, res, next) => {
       input: input,
       temperature: 0.1,
     });
+    console.log('MANAGED TO PASS OPEN AI API CALL');
 
     const completionString = response.output_text;
+    console.log('this is the responses from the LLM', completionString);
 
     if (!completionString) {
       throw new Error(
